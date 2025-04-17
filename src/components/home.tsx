@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Search, ShoppingCart, ChevronDown, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -20,131 +20,227 @@ const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
-  const [ratingFilter, setRatingFilter] = useState<number>(0);
+  const [filters, setFilters] = useState({
+    categories: [],
+    priceRange: [0, 1000] as [number, number],
+    ratings: [],
+  });
   const [sortOption, setSortOption] = useState("newest");
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>(
     [],
   );
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock products data
-  const products: Product[] = [
-    {
-      id: "1",
-      name: "Wireless Headphones",
-      price: 129.99,
-      image:
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=80",
-      category: "Electronics",
-      rating: 4.5,
-      description: "Premium wireless headphones with noise cancellation.",
-    },
-    {
-      id: "2",
-      name: "Smart Watch",
-      price: 199.99,
-      image:
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80",
-      category: "Electronics",
-      rating: 4.2,
-      description:
-        "Track your fitness and stay connected with this smart watch.",
-    },
-    {
-      id: "3",
-      name: "Cotton T-Shirt",
-      price: 24.99,
-      image:
-        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&q=80",
-      category: "Clothing",
-      rating: 4.0,
-      description: "Comfortable cotton t-shirt for everyday wear.",
-    },
-    {
-      id: "4",
-      name: "Leather Wallet",
-      price: 49.99,
-      image:
-        "https://images.unsplash.com/photo-1627123424574-724758594e93?w=500&q=80",
-      category: "Accessories",
-      rating: 4.8,
-      description: "Genuine leather wallet with multiple card slots.",
-    },
-    {
-      id: "5",
-      name: "Ceramic Coffee Mug",
-      price: 14.99,
-      image:
-        "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=500&q=80",
-      category: "Home",
-      rating: 3.9,
-      description: "Stylish ceramic coffee mug for your morning brew.",
-    },
-    {
-      id: "6",
-      name: "Running Shoes",
-      price: 89.99,
-      image:
-        "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&q=80",
-      category: "Footwear",
-      rating: 4.7,
-      description: "Lightweight running shoes with superior cushioning.",
-    },
-    {
-      id: "7",
-      name: "Backpack",
-      price: 59.99,
-      image:
-        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&q=80",
-      category: "Accessories",
-      rating: 4.3,
-      description: "Durable backpack with multiple compartments.",
-    },
-    {
-      id: "8",
-      name: "Sunglasses",
-      price: 79.99,
-      image:
-        "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=500&q=80",
-      category: "Accessories",
-      rating: 4.1,
-      description: "Stylish sunglasses with UV protection.",
-    },
-  ];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
-  // Filter products based on search, category, price, and rating
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory.length === 0 ||
-      selectedCategory.includes(product.category);
-    const matchesPrice =
-      product.price >= priceRange[0] && product.price <= priceRange[1];
-    const matchesRating = product.rating >= ratingFilter;
+  // Load products and categories from Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // Import dynamically to avoid issues with SSR
+        const { fetchProducts, fetchCategories } = await import(
+          "../lib/supabase"
+        );
 
-    return matchesSearch && matchesCategory && matchesPrice && matchesRating;
-  });
+        // Fetch products and categories
+        const productsData = await fetchProducts();
+        const categoriesData = await fetchCategories();
 
-  // Sort products based on selected option
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortOption) {
-      case "priceHighToLow":
-        return b.price - a.price;
-      case "priceLowToHigh":
-        return a.price - b.price;
-      case "popularity":
-        return b.rating - a.rating;
-      case "newest":
-      default:
-        return parseInt(b.id) - parseInt(a.id);
+        setProducts(productsData);
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error("Failed to load data:", error);
+        // Fallback to mock data if API fails
+        setProducts([
+          {
+            id: "1",
+            name: "Wireless Headphones",
+            price: 129.99,
+            image:
+              "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=80",
+            category: "Electronics",
+            rating: 4.5,
+            description: "Premium wireless headphones with noise cancellation.",
+          },
+          {
+            id: "2",
+            name: "Smart Watch",
+            price: 199.99,
+            image:
+              "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80",
+            category: "Electronics",
+            rating: 4.2,
+            description:
+              "Track your fitness and stay connected with this smart watch.",
+          },
+          {
+            id: "3",
+            name: "Cotton T-Shirt",
+            price: 24.99,
+            image:
+              "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&q=80",
+            category: "Clothing",
+            rating: 4.0,
+            description: "Comfortable cotton t-shirt for everyday wear.",
+          },
+          {
+            id: "4",
+            name: "Leather Wallet",
+            price: 49.99,
+            image:
+              "https://images.unsplash.com/photo-1627123424574-724758594e93?w=500&q=80",
+            category: "Accessories",
+            rating: 4.8,
+            description: "Genuine leather wallet with multiple card slots.",
+          },
+          {
+            id: "5",
+            name: "Ceramic Coffee Mug",
+            price: 14.99,
+            image:
+              "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=500&q=80",
+            category: "Home",
+            rating: 3.9,
+            description: "Stylish ceramic coffee mug for your morning brew.",
+          },
+          {
+            id: "6",
+            name: "Running Shoes",
+            price: 89.99,
+            image:
+              "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&q=80",
+            category: "Footwear",
+            rating: 4.7,
+            description: "Lightweight running shoes with superior cushioning.",
+          },
+          {
+            id: "7",
+            name: "Backpack",
+            price: 59.99,
+            image:
+              "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&q=80",
+            category: "Accessories",
+            rating: 4.3,
+            description: "Durable backpack with multiple compartments.",
+          },
+          {
+            id: "8",
+            name: "Sunglasses",
+            price: 79.99,
+            image:
+              "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=500&q=80",
+            category: "Accessories",
+            rating: 4.1,
+            description: "Stylish sunglasses with UV protection.",
+          },
+        ]);
+        setCategories([
+          "Electronics",
+          "Clothing",
+          "Accessories",
+          "Home",
+          "Footwear",
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Search products when query changes
+  useEffect(() => {
+    const searchProducts = async () => {
+      if (searchQuery.trim() === "") return;
+
+      setIsLoading(true);
+      try {
+        const { searchProducts } = await import("../lib/supabase");
+        const results = await searchProducts(searchQuery);
+        if (results.length > 0) {
+          setProducts(results);
+        }
+      } catch (error) {
+        console.error("Search failed:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const debounce = setTimeout(() => {
+      searchProducts();
+    }, 500);
+
+    return () => clearTimeout(debounce);
+  }, [searchQuery]);
+
+  // Apply filters and sorting
+  const filteredAndSortedProducts = useMemo(() => {
+    // Apply filters
+    let result = [...products];
+
+    // Category filter
+    if (filters.categories.length > 0) {
+      result = result.filter((product) =>
+        filters.categories.includes(product.category),
+      );
     }
-  });
+
+    // Price range filter
+    result = result.filter(
+      (product) =>
+        product.price >= filters.priceRange[0] &&
+        product.price <= filters.priceRange[1],
+    );
+
+    // Rating filter
+    if (filters.ratings.length > 0) {
+      result = result.filter((product) =>
+        filters.ratings.includes(Math.floor(product.rating)),
+      );
+    }
+
+    // Apply sorting
+    return result.sort((a, b) => {
+      switch (sortOption) {
+        case "priceHighToLow":
+          return b.price - a.price;
+        case "priceLowToHigh":
+          return a.price - b.price;
+        case "popularity":
+          return b.rating - a.rating;
+        case "newest":
+        default:
+          return parseInt(b.id) - parseInt(a.id);
+      }
+    });
+  }, [products, filters, sortOption]);
+
+  // Load cart from Supabase on initial load
+  useEffect(() => {
+    const loadCart = async () => {
+      try {
+        // In a real app, you'd get the user ID from auth
+        const userId = "current-user-id";
+        const { fetchCartItems } = await import("../lib/supabase");
+        const cartItems = await fetchCartItems(userId);
+        if (cartItems.length > 0) {
+          setCart(cartItems);
+        }
+      } catch (error) {
+        console.error("Failed to load cart:", error);
+      }
+    };
+
+    loadCart();
+  }, []);
 
   // Add product to cart
-  const addToCart = (product: Product) => {
+  const addToCart = async (product: Product) => {
+    // Update local state first for immediate feedback
     setCart((prevCart) => {
       const existingItem = prevCart.find(
         (item) => item.product.id === product.id,
@@ -159,28 +255,82 @@ const HomePage = () => {
         return [...prevCart, { product, quantity: 1 }];
       }
     });
+
+    // Then update in Supabase
+    try {
+      const userId = "current-user-id"; // In a real app, get from auth
+      const { saveCartItem } = await import("../lib/supabase");
+      await saveCartItem(
+        userId,
+        product.id,
+        cart.find((item) => item.product.id === product.id)?.quantity || 1,
+      );
+    } catch (error) {
+      console.error("Failed to save cart item:", error);
+    }
+
     setIsCartOpen(true);
   };
 
   // Remove product from cart
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = async (productId: string) => {
+    // Update local state first
     setCart((prevCart) =>
       prevCart.filter((item) => item.product.id !== productId),
     );
+
+    // Then update in Supabase
+    try {
+      const userId = "current-user-id"; // In a real app, get from auth
+      const { removeCartItem } = await import("../lib/supabase");
+      await removeCartItem(userId, productId);
+    } catch (error) {
+      console.error("Failed to remove cart item:", error);
+    }
   };
 
   // Update product quantity in cart
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = async (productId: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
     }
 
+    // Update local state first
     setCart((prevCart) =>
       prevCart.map((item) =>
         item.product.id === productId ? { ...item, quantity } : item,
       ),
     );
+
+    // Then update in Supabase
+    try {
+      const userId = "current-user-id"; // In a real app, get from auth
+      const { saveCartItem } = await import("../lib/supabase");
+      await saveCartItem(userId, productId, quantity);
+    } catch (error) {
+      console.error("Failed to update cart item:", error);
+    }
+  };
+
+  // Handle checkout process
+  const handleCheckout = async () => {
+    try {
+      const userId = "current-user-id"; // In a real app, get from auth
+      const { createOrder } = await import("../lib/supabase");
+      const orderId = await createOrder(userId, cart, cartTotal);
+
+      if (orderId) {
+        // Clear local cart after successful checkout
+        setCart([]);
+        setIsCartOpen(false);
+        // You could redirect to an order confirmation page here
+        alert(`Order placed successfully! Order ID: ${orderId}`);
+      }
+    } catch (error) {
+      console.error("Checkout failed:", error);
+      alert("Failed to process your order. Please try again.");
+    }
   };
 
   // Calculate cart total
@@ -333,14 +483,12 @@ const HomePage = () => {
           {/* Filter panel - desktop */}
           <div className="hidden md:block w-64 shrink-0">
             <FilterPanel
-              categories={Array.from(new Set(products.map((p) => p.category)))}
-              selectedCategories={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-              priceRange={priceRange}
-              onPriceRangeChange={setPriceRange}
-              maxPrice={Math.max(...products.map((p) => p.price))}
-              ratingFilter={ratingFilter}
-              onRatingChange={setRatingFilter}
+              isOpen={true}
+              categories={categories.map((cat) => ({
+                id: cat.toLowerCase(),
+                name: cat,
+              }))}
+              onApplyFilters={(newFilters) => setFilters(newFilters)}
             />
           </div>
 
@@ -359,16 +507,15 @@ const HomePage = () => {
                   </Button>
                 </div>
                 <FilterPanel
-                  categories={Array.from(
-                    new Set(products.map((p) => p.category)),
-                  )}
-                  selectedCategories={selectedCategory}
-                  onCategoryChange={setSelectedCategory}
-                  priceRange={priceRange}
-                  onPriceRangeChange={setPriceRange}
-                  maxPrice={Math.max(...products.map((p) => p.price))}
-                  ratingFilter={ratingFilter}
-                  onRatingChange={setRatingFilter}
+                  isOpen={true}
+                  categories={categories.map((cat) => ({
+                    id: cat.toLowerCase(),
+                    name: cat,
+                  }))}
+                  onApplyFilters={(newFilters) => {
+                    setFilters(newFilters);
+                    setIsFilterOpen(false);
+                  }}
                 />
                 <div className="mt-6">
                   <Button
@@ -384,16 +531,36 @@ const HomePage = () => {
 
           {/* Product grid */}
           <div className="flex-1">
-            <ProductGrid products={sortedProducts} onAddToCart={addToCart} />
-
-            {/* Empty state */}
-            {sortedProducts.length === 0 && (
-              <div className="text-center py-12">
-                <h3 className="text-xl font-medium mb-2">No products found</h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your search or filter criteria
-                </p>
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="bg-muted rounded-lg h-[350px] animate-pulse"
+                  ></div>
+                ))}
               </div>
+            ) : (
+              <>
+                <ProductGrid
+                  products={filteredAndSortedProducts}
+                  filters={filters}
+                  searchQuery={searchQuery}
+                  sortOption={sortOption}
+                />
+
+                {/* Empty state */}
+                {filteredAndSortedProducts.length === 0 && (
+                  <div className="text-center py-12">
+                    <h3 className="text-xl font-medium mb-2">
+                      No products found
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Try adjusting your search or filter criteria
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -403,10 +570,16 @@ const HomePage = () => {
       <CartPreview
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
-        cartItems={cart}
-        onUpdateQuantity={updateQuantity}
+        items={cart.map((item) => ({
+          id: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          image: item.product.image,
+        }))}
         onRemoveItem={removeFromCart}
-        total={cartTotal}
+        onUpdateQuantity={updateQuantity}
+        onCheckout={handleCheckout}
       />
     </div>
   );

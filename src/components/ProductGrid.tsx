@@ -184,7 +184,20 @@ const ProductGrid = ({
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.3 }}
             >
-              <ProductCard product={product} />
+              <ProductCard
+                id={product.id}
+                name={product.name}
+                price={product.price}
+                originalPrice={product.price * 1.2}
+                image={product.image}
+                rating={product.rating}
+                category={product.category}
+                isNew={product.isNew}
+                isSale={true}
+                onAddToCart={() => {}}
+                onQuickView={() => {}}
+                onAddToWishlist={() => {}}
+              />
             </motion.div>
           ))}
         </motion.div>
