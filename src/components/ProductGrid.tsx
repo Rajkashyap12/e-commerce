@@ -194,7 +194,11 @@ const ProductGrid = ({
                 category={product.category}
                 isNew={product.isNew}
                 isSale={true}
-                onAddToCart={() => {}}
+                onAddToCart={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("add-to-cart", { detail: product }),
+                  )
+                }
                 onQuickView={() => {}}
                 onAddToWishlist={() => {}}
               />

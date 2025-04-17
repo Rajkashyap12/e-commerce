@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, ShoppingCart, ChevronDown, X } from "lucide-react";
+import { Search, ShoppingCart, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import ProductGrid from "./ProductGrid";
 import FilterPanel from "./FilterPanel";
 import CartPreview from "./CartPreview";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface Product {
   id: string;
@@ -182,11 +189,22 @@ const HomePage = () => {
     // Apply filters
     let result = [...products];
 
+    console.log("Filtering products:", {
+      totalProducts: products.length,
+      categories: filters.categories,
+      priceRange: filters.priceRange,
+      ratings: filters.ratings,
+    });
+
     // Category filter
     if (filters.categories.length > 0) {
-      result = result.filter((product) =>
-        filters.categories.includes(product.category),
-      );
+      result = result.filter((product) => {
+        const categoryMatches = filters.categories.includes(
+          product.category.toLowerCase(),
+        );
+        return categoryMatches;
+      });
+      console.log("After category filter:", result.length);
     }
 
     // Price range filter
@@ -195,16 +213,18 @@ const HomePage = () => {
         product.price >= filters.priceRange[0] &&
         product.price <= filters.priceRange[1],
     );
+    console.log("After price filter:", result.length);
 
     // Rating filter
     if (filters.ratings.length > 0) {
       result = result.filter((product) =>
         filters.ratings.includes(Math.floor(product.rating)),
       );
+      console.log("After rating filter:", result.length);
     }
 
     // Apply sorting
-    return result.sort((a, b) => {
+    const sortedResult = result.sort((a, b) => {
       switch (sortOption) {
         case "priceHighToLow":
           return b.price - a.price;
@@ -217,7 +237,23 @@ const HomePage = () => {
           return parseInt(b.id) - parseInt(a.id);
       }
     });
+
+    console.log("Final filtered products:", sortedResult.length);
+    return sortedResult;
   }, [products, filters, sortOption]);
+
+  // Listen for add to cart events from ProductGrid
+  useEffect(() => {
+    const handleAddToCart = (event: any) => {
+      const product = event.detail;
+      if (product && product.id) {
+        addToCartHandler(product);
+      }
+    };
+
+    window.addEventListener("add-to-cart", handleAddToCart);
+    return () => window.removeEventListener("add-to-cart", handleAddToCart);
+  }, [cart]);
 
   // Load cart from Supabase on initial load
   useEffect(() => {
@@ -239,7 +275,7 @@ const HomePage = () => {
   }, []);
 
   // Add product to cart
-  const addToCart = async (product: Product) => {
+  const addToCartHandler = async (product: Product) => {
     // Update local state first for immediate feedback
     setCart((prevCart) => {
       const existingItem = prevCart.find(
@@ -260,11 +296,9 @@ const HomePage = () => {
     try {
       const userId = "current-user-id"; // In a real app, get from auth
       const { saveCartItem } = await import("../lib/supabase");
-      await saveCartItem(
-        userId,
-        product.id,
-        cart.find((item) => item.product.id === product.id)?.quantity || 1,
-      );
+      const newQuantity =
+        cart.find((item) => item.product.id === product.id)?.quantity + 1 || 1;
+      await saveCartItem(userId, product.id, newQuantity);
     } catch (error) {
       console.error("Failed to save cart item:", error);
     }
@@ -315,9 +349,16 @@ const HomePage = () => {
 
   // Handle checkout process
   const handleCheckout = async () => {
+    if (cart.length === 0) {
+      alert("Your cart is empty");
+      return;
+    }
+
     try {
       const userId = "current-user-id"; // In a real app, get from auth
       const { createOrder } = await import("../lib/supabase");
+
+      console.log("Processing checkout with items:", cart);
       const orderId = await createOrder(userId, cart, cartTotal);
 
       if (orderId) {
@@ -326,6 +367,8 @@ const HomePage = () => {
         setIsCartOpen(false);
         // You could redirect to an order confirmation page here
         alert(`Order placed successfully! Order ID: ${orderId}`);
+      } else {
+        throw new Error("Failed to create order");
       }
     } catch (error) {
       console.error("Checkout failed:", error);
@@ -423,51 +466,21 @@ const HomePage = () => {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-3xl font-bold">Products</h2>
           <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Button
-                variant="outline"
-                onClick={() => {}}
-                className="flex items-center"
-              >
-                Sort by:{" "}
-                {sortOption === "newest"
-                  ? "Newest"
-                  : sortOption === "priceHighToLow"
-                    ? "Price: High to Low"
-                    : sortOption === "priceLowToHigh"
-                      ? "Price: Low to High"
-                      : "Popularity"}
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-              <div className="absolute right-0 mt-2 w-48 bg-background border border-border rounded-md shadow-lg z-10 hidden group-hover:block">
-                <div className="py-1">
-                  <button
-                    onClick={() => setSortOption("newest")}
-                    className="block w-full text-left px-4 py-2 hover:bg-accent"
-                  >
-                    Newest
-                  </button>
-                  <button
-                    onClick={() => setSortOption("priceHighToLow")}
-                    className="block w-full text-left px-4 py-2 hover:bg-accent"
-                  >
-                    Price: High to Low
-                  </button>
-                  <button
-                    onClick={() => setSortOption("priceLowToHigh")}
-                    className="block w-full text-left px-4 py-2 hover:bg-accent"
-                  >
-                    Price: Low to High
-                  </button>
-                  <button
-                    onClick={() => setSortOption("popularity")}
-                    className="block w-full text-left px-4 py-2 hover:bg-accent"
-                  >
-                    Popularity
-                  </button>
-                </div>
-              </div>
-            </div>
+            <Select value={sortOption} onValueChange={setSortOption}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="priceHighToLow">
+                  Price: High to Low
+                </SelectItem>
+                <SelectItem value="priceLowToHigh">
+                  Price: Low to High
+                </SelectItem>
+                <SelectItem value="popularity">Popularity</SelectItem>
+              </SelectContent>
+            </Select>
 
             <Button
               variant="outline"

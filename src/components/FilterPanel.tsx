@@ -50,12 +50,18 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   });
 
   const handleCategoryChange = (categoryId: string, checked: boolean) => {
-    setFilters((prev) => ({
-      ...prev,
-      categories: checked
+    setFilters((prev) => {
+      const newCategories = checked
         ? [...prev.categories, categoryId]
-        : prev.categories.filter((id) => id !== categoryId),
-    }));
+        : prev.categories.filter((id) => id !== categoryId);
+
+      console.log("Category changed:", categoryId, checked, newCategories);
+
+      return {
+        ...prev,
+        categories: newCategories,
+      };
+    });
   };
 
   const handlePriceChange = (value: number[]) => {
@@ -83,6 +89,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   };
 
   const handleApply = () => {
+    console.log("Applying filters:", filters);
     onApplyFilters(filters);
   };
 
