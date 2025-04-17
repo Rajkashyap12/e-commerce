@@ -246,14 +246,26 @@ const HomePage = () => {
   useEffect(() => {
     const handleAddToCart = (event: any) => {
       const product = event.detail;
+      console.log("Cart event received:", product);
       if (product && product.id) {
         addToCartHandler(product);
       }
     };
 
+    const handleSortChange = (event: any) => {
+      const sortValue = event.detail;
+      console.log("Sort changed to:", sortValue);
+      setSortOption(sortValue);
+    };
+
     window.addEventListener("add-to-cart", handleAddToCart);
-    return () => window.removeEventListener("add-to-cart", handleAddToCart);
-  }, [cart]);
+    window.addEventListener("sort-change", handleSortChange);
+
+    return () => {
+      window.removeEventListener("add-to-cart", handleAddToCart);
+      window.removeEventListener("sort-change", handleSortChange);
+    };
+  }, []);
 
   // Load cart from Supabase on initial load
   useEffect(() => {

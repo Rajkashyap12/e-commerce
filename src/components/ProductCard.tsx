@@ -83,7 +83,7 @@ const ProductCard = ({
                       size="icon"
                       variant="secondary"
                       className="rounded-full"
-                      onClick={() => onQuickView(id)}
+                      onClick={() => onAddToCart(id)}
                     >
                       <ShoppingCart className="h-4 w-4" />
                     </Button>

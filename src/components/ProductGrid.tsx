@@ -73,7 +73,7 @@ const ProductGrid = ({
       // Apply category filter
       if (filters.categories.length > 0) {
         result = result.filter((product) =>
-          filters.categories.includes(product.category),
+          filters.categories.includes(product.category.toLowerCase()),
         );
       }
 
@@ -133,7 +133,22 @@ const ProductGrid = ({
         </div>
         <div className="flex items-center space-x-2">
           <span className="text-sm text-muted-foreground">Sort by:</span>
-          <Select defaultValue={sortOption}>
+          <Select
+            value={sortOption}
+            onValueChange={(value) => {
+              // Map ProductGrid sort values to home.tsx sort values
+              const mappedValue =
+                {
+                  "price-high-low": "priceHighToLow",
+                  "price-low-high": "priceLowToHigh",
+                }[value] || value;
+
+              // Dispatch custom event to notify parent
+              window.dispatchEvent(
+                new CustomEvent("sort-change", { detail: mappedValue }),
+              );
+            }}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -194,11 +209,12 @@ const ProductGrid = ({
                 category={product.category}
                 isNew={product.isNew}
                 isSale={true}
-                onAddToCart={() =>
+                onAddToCart={() => {
+                  console.log("Adding to cart:", product);
                   window.dispatchEvent(
                     new CustomEvent("add-to-cart", { detail: product }),
-                  )
-                }
+                  );
+                }}
                 onQuickView={() => {}}
                 onAddToWishlist={() => {}}
               />

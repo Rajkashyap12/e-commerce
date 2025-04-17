@@ -50,6 +50,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   });
 
   const handleCategoryChange = (categoryId: string, checked: boolean) => {
+    console.log("Category change requested:", categoryId, checked);
     setFilters((prev) => {
       const newCategories = checked
         ? [...prev.categories, categoryId]
