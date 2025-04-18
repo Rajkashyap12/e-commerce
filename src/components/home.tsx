@@ -13,6 +13,17 @@ import {
   SelectValue,
 } from "./ui/select";
 
+interface AuthUser {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface HomePageProps {
+  user?: AuthUser | null;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -23,7 +34,7 @@ interface Product {
   description: string;
 }
 
-const HomePage = () => {
+const HomePage = ({ user }: HomePageProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -270,9 +281,10 @@ const HomePage = () => {
   // Load cart from Supabase on initial load
   useEffect(() => {
     const loadCart = async () => {
+      if (!user) return;
+
       try {
-        // In a real app, you'd get the user ID from auth
-        const userId = "current-user-id";
+        const userId = user.id;
         const { fetchCartItems } = await import("../lib/supabase");
         const cartItems = await fetchCartItems(userId);
         if (cartItems.length > 0) {
@@ -284,10 +296,16 @@ const HomePage = () => {
     };
 
     loadCart();
-  }, []);
+  }, [user]);
 
   // Add product to cart
   const addToCartHandler = async (product: Product) => {
+    if (!user) {
+      // Redirect to login if not logged in
+      window.location.href = "/login";
+      return;
+    }
+
     // Update local state first for immediate feedback
     setCart((prevCart) => {
       const existingItem = prevCart.find(
@@ -306,7 +324,7 @@ const HomePage = () => {
 
     // Then update in Supabase
     try {
-      const userId = "current-user-id"; // In a real app, get from auth
+      const userId = user.id;
       const { saveCartItem } = await import("../lib/supabase");
       const newQuantity =
         cart.find((item) => item.product.id === product.id)?.quantity + 1 || 1;
@@ -320,6 +338,8 @@ const HomePage = () => {
 
   // Remove product from cart
   const removeFromCart = async (productId: string) => {
+    if (!user) return;
+
     // Update local state first
     setCart((prevCart) =>
       prevCart.filter((item) => item.product.id !== productId),
@@ -327,7 +347,7 @@ const HomePage = () => {
 
     // Then update in Supabase
     try {
-      const userId = "current-user-id"; // In a real app, get from auth
+      const userId = user.id;
       const { removeCartItem } = await import("../lib/supabase");
       await removeCartItem(userId, productId);
     } catch (error) {
@@ -337,6 +357,8 @@ const HomePage = () => {
 
   // Update product quantity in cart
   const updateQuantity = async (productId: string, quantity: number) => {
+    if (!user) return;
+
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
@@ -351,7 +373,7 @@ const HomePage = () => {
 
     // Then update in Supabase
     try {
-      const userId = "current-user-id"; // In a real app, get from auth
+      const userId = user.id;
       const { saveCartItem } = await import("../lib/supabase");
       await saveCartItem(userId, productId, quantity);
     } catch (error) {
@@ -361,13 +383,18 @@ const HomePage = () => {
 
   // Handle checkout process
   const handleCheckout = async () => {
+    if (!user) {
+      window.location.href = "/login";
+      return;
+    }
+
     if (cart.length === 0) {
       alert("Your cart is empty");
       return;
     }
 
     try {
-      const userId = "current-user-id"; // In a real app, get from auth
+      const userId = user.id;
       const { createOrder } = await import("../lib/supabase");
 
       console.log("Processing checkout with items:", cart);
@@ -403,7 +430,7 @@ const HomePage = () => {
             <h1 className="text-2xl font-bold mr-8">ShopNow</h1>
             <nav className="hidden md:flex space-x-6">
               <a
-                href="#"
+                href="/"
                 className="text-foreground hover:text-primary transition-colors"
               >
                 Home
@@ -454,6 +481,29 @@ const HomePage = () => {
                 </span>
               )}
             </Button>
+
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm hidden md:inline-block">
+                  {user.firstName || user.email}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => (window.location.href = "/logout")}
+                >
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => (window.location.href = "/login")}
+              >
+                Login
+              </Button>
+            )}
           </div>
         </div>
 

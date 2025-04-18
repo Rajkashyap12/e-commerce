@@ -1,9 +1,18 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ShoppingCart, ChevronRight, Trash2 } from "lucide-react";
+import {
+  X,
+  ShoppingCart,
+  ChevronRight,
+  Trash2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { ScrollArea } from "./ui/scroll-area";
+import { Alert, AlertDescription } from "./ui/alert";
+import { LoadingSpinner } from "./ui/loading-spinner";
 
 interface CartItem {
   id: string;
@@ -20,6 +29,10 @@ interface CartPreviewProps {
   onRemoveItem?: (id: string) => void;
   onUpdateQuantity?: (id: string, quantity: number) => void;
   onCheckout?: () => void;
+  isLoading?: boolean;
+  isProcessing?: boolean;
+  error?: string | null;
+  backendType?: "java" | "supabase" | null;
 }
 
 const CartPreview = ({
@@ -54,9 +67,28 @@ const CartPreview = ({
   onRemoveItem = () => {},
   onUpdateQuantity = () => {},
   onCheckout = () => {},
+  isLoading = false,
+  isProcessing = false,
+  error = null,
+  backendType = null,
 }: CartPreviewProps) => {
+  const [itemProcessing, setItemProcessing] = useState<string | null>(null);
+
   const calculateTotal = () => {
     return items.reduce((total, item) => total + item.price * item.quantity, 0);
+  };
+
+  const handleUpdateQuantity = (id: string, quantity: number) => {
+    setItemProcessing(id);
+    onUpdateQuantity(id, quantity);
+    // Reset processing state after a short delay to simulate network request
+    setTimeout(() => setItemProcessing(null), 500);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setItemProcessing(id);
+    onRemoveItem(id);
+    // No need to reset processing state as the item will be removed from the list
   };
 
   return (
@@ -87,14 +119,33 @@ const CartPreview = ({
                 <h2 className="text-lg font-semibold">
                   Your Cart ({items.length})
                 </h2>
+                {backendType && (
+                  <span className="text-xs px-2 py-1 bg-muted rounded-full">
+                    {backendType === "java" ? "Java Backend" : "Supabase"}
+                  </span>
+                )}
               </div>
               <Button variant="ghost" size="icon" onClick={onClose}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
 
-            {/* Cart Items */}
-            {items.length > 0 ? (
+            {/* Error Message */}
+            {error && (
+              <Alert variant="destructive" className="m-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Loading State */}
+            {isLoading ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-4">
+                <LoadingSpinner size="lg" className="mb-4" />
+                <p className="text-lg font-medium">Loading your cart...</p>
+              </div>
+            ) : /* Cart Items */
+            items.length > 0 ? (
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
                   {items.map((item) => (
@@ -116,8 +167,9 @@ const CartPreview = ({
                             variant="outline"
                             size="sm"
                             className="h-7 w-7 rounded-full p-0"
+                            disabled={itemProcessing === item.id}
                             onClick={() =>
-                              onUpdateQuantity(
+                              handleUpdateQuantity(
                                 item.id,
                                 Math.max(1, item.quantity - 1),
                               )
@@ -125,13 +177,20 @@ const CartPreview = ({
                           >
                             -
                           </Button>
-                          <span className="mx-2 text-sm">{item.quantity}</span>
+                          <span className="mx-2 text-sm">
+                            {itemProcessing === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin inline" />
+                            ) : (
+                              item.quantity
+                            )}
+                          </span>
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-7 w-7 rounded-full p-0"
+                            disabled={itemProcessing === item.id}
                             onClick={() =>
-                              onUpdateQuantity(item.id, item.quantity + 1)
+                              handleUpdateQuantity(item.id, item.quantity + 1)
                             }
                           >
                             +
@@ -140,9 +199,14 @@ const CartPreview = ({
                             variant="ghost"
                             size="sm"
                             className="ml-auto h-7 w-7 p-0"
-                            onClick={() => onRemoveItem(item.id)}
+                            disabled={itemProcessing === item.id}
+                            onClick={() => handleRemoveItem(item.id)}
                           >
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            {itemProcessing === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            )}
                           </Button>
                         </div>
                       </div>
@@ -180,13 +244,27 @@ const CartPreview = ({
                     <span>Total</span>
                     <span>${calculateTotal().toFixed(2)}</span>
                   </div>
-                  <Button className="w-full" onClick={onCheckout}>
-                    Checkout <ChevronRight className="ml-2 h-4 w-4" />
+                  <Button
+                    className="w-full"
+                    onClick={onCheckout}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <LoadingSpinner size="sm" className="mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Checkout <ChevronRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                   <Button
                     variant="outline"
                     className="w-full"
                     onClick={onClose}
+                    disabled={isProcessing}
                   >
                     Continue Shopping
                   </Button>

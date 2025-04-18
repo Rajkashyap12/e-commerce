@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, CreditCard, Truck, Calendar } from "lucide-react";
+import { Check, CreditCard, Truck, Calendar, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Separator } from "./ui/separator";
 import { LoadingSpinner } from "./ui/loading-spinner";
+import { Alert, AlertDescription } from "./ui/alert";
 
 interface CheckoutFormProps {
   cartItems: Array<{
@@ -17,8 +18,10 @@ interface CheckoutFormProps {
     image: string;
   }>;
   subtotal: number;
-  onCheckout: () => Promise<void>;
+  onCheckout: (shippingAddress: string, paymentMethod: string) => Promise<void>;
   onCancel: () => void;
+  backendType?: "java" | "supabase" | null;
+  error?: string | null;
 }
 
 const CheckoutForm = ({
@@ -26,9 +29,12 @@ const CheckoutForm = ({
   subtotal = 0,
   onCheckout = async () => {},
   onCancel = () => {},
+  backendType = null,
+  error = null,
 }: CheckoutFormProps) => {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -58,18 +64,38 @@ const CheckoutForm = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
     if (step < 3) {
       setStep(step + 1);
       return;
     }
 
+    // Validate form data before submitting
+    if (formData.paymentMethod === "card") {
+      if (
+        !formData.cardNumber ||
+        !formData.cardName ||
+        !formData.expiry ||
+        !formData.cvv
+      ) {
+        setFormError("Please fill in all payment details");
+        return;
+      }
+    }
+
+    // Prepare shipping address
+    const shippingAddress = `${formData.name}, ${formData.address}, ${formData.city}, ${formData.zip}, ${formData.country}`;
+
     setIsProcessing(true);
     try {
-      await onCheckout();
+      await onCheckout(shippingAddress, formData.paymentMethod);
       // Success would be handled by the parent component
-    } catch (error) {
+    } catch (error: any) {
       console.error("Checkout failed:", error);
-      // Error would be handled by the parent component
+      setFormError(
+        error.message || "Failed to process your order. Please try again.",
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -78,7 +104,14 @@ const CheckoutForm = ({
   return (
     <div className="bg-background p-6 rounded-lg max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Checkout</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold">Checkout</h2>
+          {backendType && (
+            <span className="text-xs px-2 py-1 bg-muted rounded-full">
+              {backendType === "java" ? "Java Backend" : "Supabase"}
+            </span>
+          )}
+        </div>
         <div className="flex items-center">
           <div
             className={`flex items-center justify-center h-8 w-8 rounded-full ${step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
@@ -103,6 +136,14 @@ const CheckoutForm = ({
           </div>
         </div>
       </div>
+
+      {/* Error Messages */}
+      {(error || formError) && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error || formError}</AlertDescription>
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
         {/* Step 1: Contact Information */}
@@ -372,11 +413,17 @@ const CheckoutForm = ({
               type="button"
               variant="outline"
               onClick={() => setStep(step - 1)}
+              disabled={isProcessing}
             >
               Back
             </Button>
           ) : (
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isProcessing}
+            >
               Cancel
             </Button>
           )}

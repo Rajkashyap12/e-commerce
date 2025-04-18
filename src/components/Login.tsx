@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
@@ -19,12 +19,15 @@ interface LoginProps {
   onLogin?: (email: string, password: string) => Promise<void>;
 }
 
-const Login = ({ onLogin = async () => {} }: LoginProps) => {
+const Login = ({ onLogin }: LoginProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  const location = useLocation();
+  const from = location.state?.from?.pathname || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +35,15 @@ const Login = ({ onLogin = async () => {} }: LoginProps) => {
     setIsLoading(true);
 
     try {
-      await onLogin(email, password);
-      navigate("/"); // Redirect to home page after successful login
+      if (onLogin) {
+        await onLogin(email, password);
+        navigate(from, { replace: true });
+      } else {
+        // Use the auth service directly if no onLogin prop is provided
+        const { signIn } = await import("../services/auth");
+        await signIn(email, password);
+        navigate(from, { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || "Failed to login. Please try again.");
     } finally {
