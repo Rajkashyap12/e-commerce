@@ -11,6 +11,7 @@ com/shopnow/model/Order.class
 com/shopnow/controller/OrderController.class
 com/shopnow/controller/CartController.class
 com/shopnow/auth/JwtAuthenticationFilter.class
+com/shopnow/config/WebConfig.class
 com/shopnow/model/Product.class
 com/shopnow/dto/ProductDto.class
 com/shopnow/repository/CartItemRepository.class

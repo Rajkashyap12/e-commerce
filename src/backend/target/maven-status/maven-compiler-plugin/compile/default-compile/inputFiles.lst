@@ -28,6 +28,7 @@
 /workspaces/e-commerce/src/backend/src/main/java/com/shopnow/dto/CreateOrderRequest.java
 /workspaces/e-commerce/src/backend/src/main/java/com/shopnow/service/OrderService.java
 /workspaces/e-commerce/src/backend/src/main/java/com/shopnow/service/CartService.java
+/workspaces/e-commerce/src/backend/src/main/java/com/shopnow/config/WebConfig.java
 /workspaces/e-commerce/src/backend/src/main/java/com/shopnow/dto/AuthRequest.java
 /workspaces/e-commerce/src/backend/src/main/java/com/shopnow/repository/OrderRepository.java
 /workspaces/e-commerce/src/backend/src/main/java/com/shopnow/repository/CartItemRepository.java
