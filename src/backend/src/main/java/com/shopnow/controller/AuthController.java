@@ -12,58 +12,55 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
-    private final UserService userService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtTokenProvider jwtTokenProvider, UserService userService) {
+    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtTokenProvider jwtTokenProvider) {
+        this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
-        this.userService = userService;
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String token = jwtTokenProvider.generateToken(userDetails);
-
-        User user = userService.findByEmail(request.getEmail());
-        UserDto userDto = new UserDto(
-                user.getId().toString(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName()
-        );
-
-        return ResponseEntity.ok(new AuthResponse(token, userDto));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         User user = userService.register(request);
-        UserDto userDto = new UserDto(
-                user.getId().toString(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName()
+        String token = jwtTokenProvider.generateToken(user.getEmail());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("user", user);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestParam String email, @RequestParam String password) {
+        Authentication authentication = authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(email, password)
         );
-
-        // Generate token for the new user
-        UserDetails userDetails = userService.loadUserByUsername(user.getEmail());
-        String token = jwtTokenProvider.generateToken(userDetails);
-
-        return ResponseEntity.ok(new AuthResponse(token, userDto));
+        
+        if (authentication.isAuthenticated()) {
+            String token = jwtTokenProvider.generateToken(email);
+            User user = userService.findByEmail(email);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("user", user);
+            
+            return ResponseEntity.ok(response);
+        }
+        
+        return ResponseEntity.badRequest().body("Invalid credentials");
     }
 
     @GetMapping("/me")

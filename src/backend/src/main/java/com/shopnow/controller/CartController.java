@@ -1,14 +1,10 @@
 package com.shopnow.controller;
 
-import com.shopnow.dto.CartItemDto;
-import com.shopnow.dto.CartItemRequest;
-import com.shopnow.dto.CartResponse;
+import com.shopnow.model.CartItem;
 import com.shopnow.model.User;
 import com.shopnow.service.CartService;
 import com.shopnow.service.UserService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,7 +12,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/cart")
 public class CartController {
-
     private final CartService cartService;
     private final UserService userService;
 
@@ -26,51 +21,33 @@ public class CartController {
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<CartResponse> getCartItems(@PathVariable String userId) {
-        // Verify the authenticated user is accessing their own cart
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User authenticatedUser = userService.findByEmail(authentication.getName());
-        
-        if (!authenticatedUser.getId().toString().equals(userId)) {
-            return ResponseEntity.status(403).build();
-        }
-        
-        List<CartItemDto> items = cartService.getCartItems(Long.parseLong(userId));
-        return ResponseEntity.ok(new CartResponse(items));
+    public ResponseEntity<List<CartItem>> getCart(@PathVariable Long userId) {
+        User user = userService.findById(userId);
+        return ResponseEntity.ok(cartService.getCartItems(user));
     }
 
     @PostMapping("/{userId}/items")
-    public ResponseEntity<Void> addOrUpdateCartItem(
-            @PathVariable String userId,
-            @RequestBody CartItemRequest request) {
-        // Verify the authenticated user is modifying their own cart
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User authenticatedUser = userService.findByEmail(authentication.getName());
-        
-        if (!authenticatedUser.getId().toString().equals(userId)) {
-            return ResponseEntity.status(403).build();
-        }
-        
-        cartService.addOrUpdateCartItem(
-                Long.parseLong(userId),
-                Long.parseLong(request.getProductId()),
-                request.getQuantity());
-        return ResponseEntity.ok().build();
+    public ResponseEntity<CartItem> addToCart(
+            @PathVariable Long userId,
+            @RequestParam Long productId,
+            @RequestParam Integer quantity) {
+        User user = userService.findById(userId);
+        return ResponseEntity.ok(cartService.addToCart(user, productId, quantity));
     }
 
     @DeleteMapping("/{userId}/items/{productId}")
-    public ResponseEntity<Void> removeCartItem(
-            @PathVariable String userId,
-            @PathVariable String productId) {
-        // Verify the authenticated user is modifying their own cart
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User authenticatedUser = userService.findByEmail(authentication.getName());
-        
-        if (!authenticatedUser.getId().toString().equals(userId)) {
-            return ResponseEntity.status(403).build();
-        }
-        
-        cartService.removeCartItem(Long.parseLong(userId), Long.parseLong(productId));
+    public ResponseEntity<Void> removeFromCart(
+            @PathVariable Long userId,
+            @PathVariable Long productId) {
+        User user = userService.findById(userId);
+        cartService.removeFromCart(user, productId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Void> clearCart(@PathVariable Long userId) {
+        User user = userService.findById(userId);
+        cartService.clearCart(user);
         return ResponseEntity.ok().build();
     }
 }

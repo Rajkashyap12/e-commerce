@@ -1,69 +1,64 @@
 package com.shopnow.service;
 
-import com.shopnow.dto.CreateOrderItemRequest;
+import com.shopnow.model.CartItem;
 import com.shopnow.model.Order;
-import com.shopnow.model.OrderItem;
-import com.shopnow.model.Product;
 import com.shopnow.model.User;
-import com.shopnow.repository.OrderItemRepository;
 import com.shopnow.repository.OrderRepository;
-import com.shopnow.repository.ProductRepository;
-import com.shopnow.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
 public class OrderService {
-
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
-    private final UserRepository userRepository;
-    private final ProductRepository productRepository;
     private final CartService cartService;
+    private final UserService userService;
 
-    public OrderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserRepository userRepository, ProductRepository productRepository, CartService cartService) {
+    public OrderService(OrderRepository orderRepository, CartService cartService, UserService userService) {
         this.orderRepository = orderRepository;
-        this.orderItemRepository = orderItemRepository;
-        this.userRepository = userRepository;
-        this.productRepository = productRepository;
         this.cartService = cartService;
+        this.userService = userService;
     }
 
     @Transactional
-    public Long createOrder(Long userId, List<CreateOrderItemRequest> items, Double totalAmount, String shippingAddress, String paymentMethod) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public Order createOrder(Long userId, String shippingAddress, String paymentMethod) {
+        User user = userService.findById(userId);
+        List<CartItem> cartItems = cartService.getCartItems(user);
+        
+        if (cartItems.isEmpty()) {
+            throw new RuntimeException("Cart is empty");
+        }
 
         Order order = new Order();
         order.setUser(user);
-        order.setTotalAmount(totalAmount);
-        order.setStatus("pending");
+        order.setItems(cartItems);
         order.setShippingAddress(shippingAddress);
         order.setPaymentMethod(paymentMethod);
-        order.setCreatedAt(LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME));
+        order.setStatus("PENDING");
+        order.setCreatedAt(LocalDateTime.now());
+        order.setTotal(calculateTotal(cartItems));
 
-        Order savedOrder = orderRepository.save(order);
+        orderRepository.save(order);
+        cartService.clearCart(user);
 
-        for (CreateOrderItemRequest itemRequest : items) {
-            Product product = productRepository.findById(Long.parseLong(itemRequest.getProductId()))
-                    .orElseThrow(() -> new RuntimeException("Product not found"));
+        return order;
+    }
 
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(savedOrder);
-            orderItem.setProduct(product);
-            orderItem.setQuantity(itemRequest.getQuantity());
-            orderItem.setPrice(itemRequest.getPrice());
+    private double calculateTotal(List<CartItem> items) {
+        return items.stream()
+                .mapToDouble(item -> item.getProduct().getPrice() * item.getQuantity())
+                .sum();
+    }
 
-            orderItemRepository.save(orderItem);
-        }
+    public List<Order> getUserOrders(Long userId) {
+        User user = userService.findById(userId);
+        return orderRepository.findByUser(user);
+    }
 
-        // Clear the user's cart after successful order creation
-        cartService.clearCart(userId);
-
-        return savedOrder.getId();
+    public Order getOrder(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
     }
 }
