@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabase";
 
 // API base URL - will use Supabase as fallback if Java backend is not available
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api";
 
 export interface CartItem {
   product: Product;
@@ -91,7 +91,7 @@ export async function fetchCartItems(userId: string): Promise<CartItem[]> {
 
     return (
       data?.map((item) => ({
-        product: item.products,
+        product: item.products[0] as Product, // Assuming item.products is an array and we need the first product
         quantity: item.quantity,
       })) || []
     );

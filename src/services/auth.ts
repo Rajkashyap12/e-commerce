@@ -16,7 +16,7 @@ export interface SignupData {
 
 // API base URL - will use Supabase as fallback if Java backend is not available
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api";
 
 // Helper function to determine if we should use Java backend or Supabase
 const useJavaBackend = async (): Promise<boolean> => {

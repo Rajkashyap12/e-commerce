@@ -8,6 +8,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -23,14 +26,21 @@ public class SecurityConfig {
         return http
             .securityMatcher("/api/**")
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/auth/**", "/health").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/health").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.disable())
+            .cors(cors -> cors.configurationSource(request -> {
+                var config = new CorsConfiguration();
+                config.setAllowedOrigins(Arrays.asList("*"));
+                config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                config.setAllowedHeaders(Arrays.asList("*"));
+                config.setExposedHeaders(Arrays.asList("Authorization"));
+                return config;
+            }))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }

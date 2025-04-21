@@ -44,18 +44,21 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestParam String email, @RequestParam String password) {
+    public ResponseEntity<?> login(@RequestBody AuthRequest authRequest) {
         Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(email, password)
+            new UsernamePasswordAuthenticationToken(authRequest.getEmail(), authRequest.getPassword())
         );
         
         if (authentication.isAuthenticated()) {
-            String token = jwtTokenProvider.generateToken(email);
-            User user = userService.findByEmail(email);
+            String token = jwtTokenProvider.generateToken(authRequest.getEmail());
+            User user = userService.findByEmail(authRequest.getEmail());
             
-            Map<String, Object> response = new HashMap<>();
-            response.put("token", token);
-            response.put("user", user);
+            AuthResponse response = new AuthResponse(token, new UserDto(
+                user.getId().toString(),
+                user.getEmail(),
+                user.getFirstName(),
+                user.getLastName()
+            ));
             
             return ResponseEntity.ok(response);
         }
