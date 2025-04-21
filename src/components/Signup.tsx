@@ -60,7 +60,7 @@ const Signup = ({ onSignup = async () => {} }: SignupProps) => {
 
     try {
       // If onSignup prop is provided, use it
-      if (onSignup !== async () => {}) {
+      if (onSignup !== (() => {})) {
         await onSignup({
           email: formData.email,
           password: formData.password,
@@ -76,14 +76,16 @@ const Signup = ({ onSignup = async () => {} }: SignupProps) => {
           firstName: formData.firstName,
           lastName: formData.lastName,
         });
-        
+
         // Check if we're using Java backend based on the presence of authToken
         const usingJavaBackend = !!localStorage.getItem("authToken");
         setBackendType(usingJavaBackend ? "java" : "supabase");
-        
-        console.log(`Signed up successfully using ${usingJavaBackend ? "Java backend" : "Supabase"}`)
+
+        console.log(
+          `Signed up successfully using ${usingJavaBackend ? "Java backend" : "Supabase"}`,
+        );
       }
-      
+
       navigate("/login"); // Redirect to login page after successful signup
     } catch (err: any) {
       setError(err.message || "Failed to create account. Please try again.");
