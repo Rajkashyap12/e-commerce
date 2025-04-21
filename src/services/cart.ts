@@ -43,11 +43,17 @@ export async function fetchCartItems(userId: string): Promise<CartItem[]> {
   // Try Java backend first
   if (await useJavaBackend()) {
     try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        console.log("No auth token found, falling back to Supabase");
+        throw new Error("No auth token found");
+      }
+
       const response = await fetch(`${API_BASE_URL}/cart/${userId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -104,11 +110,17 @@ export async function saveCartItem(
   // Try Java backend first
   if (await useJavaBackend()) {
     try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        console.log("No auth token found, falling back to Supabase");
+        throw new Error("No auth token found");
+      }
+
       const response = await fetch(`${API_BASE_URL}/cart/${userId}/items`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           productId,
@@ -163,13 +175,19 @@ export async function removeCartItem(
   // Try Java backend first
   if (await useJavaBackend()) {
     try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        console.log("No auth token found, falling back to Supabase");
+        throw new Error("No auth token found");
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/cart/${userId}/items/${productId}`,
         {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            Authorization: `Bearer ${token}`,
           },
         },
       );
@@ -218,11 +236,17 @@ export async function createOrder(
   // Try Java backend first
   if (await useJavaBackend()) {
     try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        console.log("No auth token found, falling back to Supabase");
+        throw new Error("No auth token found");
+      }
+
       const response = await fetch(`${API_BASE_URL}/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           userId,
