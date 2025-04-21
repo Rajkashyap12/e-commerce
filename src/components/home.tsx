@@ -309,10 +309,12 @@ const HomePage = ({ user }: HomePageProps) => {
       return;
     }
 
-    // Set the product as processing
+    // Create a state variable for processing products
     const [processingProduct, setProcessingProduct] = useState<string | null>(
       null,
     );
+
+    // Set the product as processing
     setProcessingProduct(product.id);
 
     // Update local state first for immediate feedback
@@ -337,7 +339,11 @@ const HomePage = ({ user }: HomePageProps) => {
       const { saveCartItem } = await import("../services/cart");
       const newQuantity =
         cart.find((item) => item.product.id === product.id)?.quantity + 1 || 1;
+      console.log(
+        `Adding product ${product.id} to cart with quantity ${newQuantity}`,
+      );
       await saveCartItem(userId, product.id, newQuantity);
+      console.log("Product successfully added to cart");
     } catch (error) {
       console.error("Failed to save cart item:", error);
       // Revert the local state change if the API call fails

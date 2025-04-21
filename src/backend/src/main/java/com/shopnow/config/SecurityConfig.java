@@ -22,8 +22,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
             .securityMatcher("/api/**")
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/health", "/h2-console/**").permitAll()
+            .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/auth/**", "/health").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

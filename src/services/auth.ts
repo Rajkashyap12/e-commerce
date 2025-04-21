@@ -47,6 +47,7 @@ export async function signIn(
   // Try Java backend first
   if (await useJavaBackend()) {
     try {
+      console.log("Attempting to sign in with Java backend");
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
@@ -55,12 +56,24 @@ export async function signIn(
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("Java login response status:", response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to sign in");
+        const errorText = await response.text();
+        console.error("Login error response:", errorText);
+        let errorMessage = "Failed to sign in";
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If the response is not valid JSON, use the error text
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      console.log("Login successful, received data:", data);
 
       // Store the auth token in localStorage
       localStorage.setItem("authToken", data.token);

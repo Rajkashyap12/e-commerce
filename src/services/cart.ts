@@ -116,6 +116,9 @@ export async function saveCartItem(
         throw new Error("No auth token found");
       }
 
+      console.log(
+        `Saving cart item for user ${userId}, product ${productId}, quantity ${quantity}`,
+      );
       const response = await fetch(`${API_BASE_URL}/cart/${userId}/items`, {
         method: "POST",
         headers: {
@@ -128,10 +131,15 @@ export async function saveCartItem(
         }),
       });
 
+      console.log("Save cart item response status:", response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Save cart item error response:", errorText);
         throw new Error(`Error saving cart item: ${response.statusText}`);
       }
 
+      console.log("Item successfully added to cart");
       return true;
     } catch (error) {
       console.error(
