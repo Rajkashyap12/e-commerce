@@ -278,33 +278,42 @@ const HomePage = ({ user }: HomePageProps) => {
     };
   }, []);
 
-  // Load cart from Supabase on initial load
+  // Load cart from Java backend or Supabase on initial load
   useEffect(() => {
     const loadCart = async () => {
       if (!user) return;
 
       try {
+        setIsLoading(true);
         const userId = user.id;
-        const { fetchCartItems } = await import("../lib/supabase");
+        const { fetchCartItems } = await import("../services/cart");
         const cartItems = await fetchCartItems(userId);
         if (cartItems.length > 0) {
           setCart(cartItems);
         }
       } catch (error) {
         console.error("Failed to load cart:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadCart();
   }, [user]);
 
-  // Add product to cart
+  // Add product to cart using Java backend or Supabase
   const addToCartHandler = async (product: Product) => {
     if (!user) {
       // Redirect to login if not logged in
       window.location.href = "/login";
       return;
     }
+
+    // Set the product as processing
+    const [processingProduct, setProcessingProduct] = useState<string | null>(
+      null,
+    );
+    setProcessingProduct(product.id);
 
     // Update local state first for immediate feedback
     setCart((prevCart) => {
@@ -322,40 +331,64 @@ const HomePage = ({ user }: HomePageProps) => {
       }
     });
 
-    // Then update in Supabase
+    // Then update in Java backend or Supabase
     try {
       const userId = user.id;
-      const { saveCartItem } = await import("../lib/supabase");
+      const { saveCartItem } = await import("../services/cart");
       const newQuantity =
         cart.find((item) => item.product.id === product.id)?.quantity + 1 || 1;
       await saveCartItem(userId, product.id, newQuantity);
     } catch (error) {
       console.error("Failed to save cart item:", error);
+      // Revert the local state change if the API call fails
+      setCart((prevCart) => {
+        const existingItem = prevCart.find(
+          (item) => item.product.id === product.id,
+        );
+        if (existingItem && existingItem.quantity > 1) {
+          return prevCart.map((item) =>
+            item.product.id === product.id
+              ? { ...item, quantity: item.quantity - 1 }
+              : item,
+          );
+        } else {
+          return prevCart.filter((item) => item.product.id !== product.id);
+        }
+      });
+    } finally {
+      setProcessingProduct(null);
     }
 
     setIsCartOpen(true);
   };
 
-  // Remove product from cart
+  // Remove product from cart using Java backend or Supabase
   const removeFromCart = async (productId: string) => {
     if (!user) return;
+
+    // Store the item being removed in case we need to restore it
+    const itemToRemove = cart.find((item) => item.product.id === productId);
 
     // Update local state first
     setCart((prevCart) =>
       prevCart.filter((item) => item.product.id !== productId),
     );
 
-    // Then update in Supabase
+    // Then update in Java backend or Supabase
     try {
       const userId = user.id;
-      const { removeCartItem } = await import("../lib/supabase");
+      const { removeCartItem } = await import("../services/cart");
       await removeCartItem(userId, productId);
     } catch (error) {
       console.error("Failed to remove cart item:", error);
+      // Restore the item if the API call fails
+      if (itemToRemove) {
+        setCart((prevCart) => [...prevCart, itemToRemove]);
+      }
     }
   };
 
-  // Update product quantity in cart
+  // Update product quantity in cart using Java backend or Supabase
   const updateQuantity = async (productId: string, quantity: number) => {
     if (!user) return;
 
@@ -364,6 +397,10 @@ const HomePage = ({ user }: HomePageProps) => {
       return;
     }
 
+    // Store the original quantity in case we need to revert
+    const originalItem = cart.find((item) => item.product.id === productId);
+    const originalQuantity = originalItem ? originalItem.quantity : 0;
+
     // Update local state first
     setCart((prevCart) =>
       prevCart.map((item) =>
@@ -371,34 +408,59 @@ const HomePage = ({ user }: HomePageProps) => {
       ),
     );
 
-    // Then update in Supabase
+    // Then update in Java backend or Supabase
     try {
       const userId = user.id;
-      const { saveCartItem } = await import("../lib/supabase");
+      const { saveCartItem } = await import("../services/cart");
       await saveCartItem(userId, productId, quantity);
     } catch (error) {
       console.error("Failed to update cart item:", error);
+      // Revert to original quantity if the API call fails
+      if (originalItem) {
+        setCart((prevCart) =>
+          prevCart.map((item) =>
+            item.product.id === productId
+              ? { ...item, quantity: originalQuantity }
+              : item,
+          ),
+        );
+      }
     }
   };
 
-  // Handle checkout process
-  const handleCheckout = async () => {
+  // Handle checkout process using Java backend or Supabase
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const handleCheckout = async (
+    shippingAddress: string = "",
+    paymentMethod: string = "credit_card",
+  ) => {
     if (!user) {
       window.location.href = "/login";
       return;
     }
 
     if (cart.length === 0) {
-      alert("Your cart is empty");
+      setCheckoutError("Your cart is empty");
       return;
     }
 
+    setIsProcessing(true);
+    setCheckoutError(null);
+
     try {
       const userId = user.id;
-      const { createOrder } = await import("../lib/supabase");
+      const { createOrder } = await import("../services/cart");
 
       console.log("Processing checkout with items:", cart);
-      const orderId = await createOrder(userId, cart, cartTotal);
+      const orderId = await createOrder(
+        userId,
+        cart,
+        cartTotal,
+        shippingAddress,
+        paymentMethod,
+      );
 
       if (orderId) {
         // Clear local cart after successful checkout
@@ -409,9 +471,13 @@ const HomePage = ({ user }: HomePageProps) => {
       } else {
         throw new Error("Failed to create order");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Checkout failed:", error);
-      alert("Failed to process your order. Please try again.");
+      setCheckoutError(
+        error.message || "Failed to process your order. Please try again.",
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -655,6 +721,10 @@ const HomePage = ({ user }: HomePageProps) => {
         onRemoveItem={removeFromCart}
         onUpdateQuantity={updateQuantity}
         onCheckout={handleCheckout}
+        isLoading={isLoading}
+        isProcessing={isProcessing}
+        error={checkoutError}
+        backendType="java"
       />
     </div>
   );

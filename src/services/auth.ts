@@ -14,6 +14,29 @@ export interface SignupData {
   lastName?: string;
 }
 
+// API base URL - will use Supabase as fallback if Java backend is not available
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+
+// Helper function to determine if we should use Java backend or Supabase
+const useJavaBackend = async (): Promise<boolean> => {
+  try {
+    // Try to ping the Java backend
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // Short timeout to quickly fall back to Supabase if Java backend is not available
+      signal: AbortSignal.timeout(1000),
+    });
+    return response.ok;
+  } catch (error) {
+    console.log("Java backend not available, falling back to Supabase");
+    return false;
+  }
+};
+
 /**
  * Sign in with email and password
  */
@@ -21,6 +44,43 @@ export async function signIn(
   email: string,
   password: string,
 ): Promise<AuthUser> {
+  // Try Java backend first
+  if (await useJavaBackend()) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to sign in");
+      }
+
+      const data = await response.json();
+
+      // Store the auth token in localStorage
+      localStorage.setItem("authToken", data.token);
+
+      return {
+        id: data.user.id,
+        email: data.user.email,
+        firstName: data.user.firstName,
+        lastName: data.user.lastName,
+      };
+    } catch (error: any) {
+      console.error(
+        "Error signing in with Java backend, falling back to Supabase:",
+        error,
+      );
+      // Fall back to Supabase if Java backend fails
+    }
+  }
+
+  // Supabase fallback
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -62,6 +122,50 @@ export async function signIn(
  * Sign up with email and password
  */
 export async function signUp(data: SignupData): Promise<AuthUser> {
+  // Try Java backend first
+  if (await useJavaBackend()) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          firstName: data.firstName,
+          lastName: data.lastName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to sign up");
+      }
+
+      const responseData = await response.json();
+
+      // Store the auth token in localStorage if provided
+      if (responseData.token) {
+        localStorage.setItem("authToken", responseData.token);
+      }
+
+      return {
+        id: responseData.user.id,
+        email: responseData.user.email,
+        firstName: responseData.user.firstName,
+        lastName: responseData.user.lastName,
+      };
+    } catch (error: any) {
+      console.error(
+        "Error signing up with Java backend, falling back to Supabase:",
+        error,
+      );
+      // Fall back to Supabase if Java backend fails
+    }
+  }
+
+  // Supabase fallback
   try {
     // Create auth user
     const { data: authData, error } = await supabase.auth.signUp({
@@ -110,6 +214,37 @@ export async function signUp(data: SignupData): Promise<AuthUser> {
  * Sign out the current user
  */
 export async function signOut(): Promise<void> {
+  // Try Java backend first
+  if (await useJavaBackend()) {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error("Error signing out from Java backend");
+        }
+
+        // Remove the auth token from localStorage
+        localStorage.removeItem("authToken");
+        return;
+      }
+    } catch (error) {
+      console.error(
+        "Error signing out from Java backend, falling back to Supabase:",
+        error,
+      );
+      // Fall back to Supabase if Java backend fails
+    }
+  }
+
+  // Supabase fallback
   const { error } = await supabase.auth.signOut();
   if (error) {
     console.error("Sign out error:", error);
@@ -121,6 +256,45 @@ export async function signOut(): Promise<void> {
  * Get the current authenticated user
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  // Try Java backend first
+  if (await useJavaBackend()) {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) return null;
+
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // If unauthorized, clear the token
+        if (response.status === 401) {
+          localStorage.removeItem("authToken");
+        }
+        return null;
+      }
+
+      const data = await response.json();
+      return {
+        id: data.id,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+      };
+    } catch (error) {
+      console.error(
+        "Error getting current user from Java backend, falling back to Supabase:",
+        error,
+      );
+      // Fall back to Supabase if Java backend fails
+    }
+  }
+
+  // Supabase fallback
   try {
     const { data } = await supabase.auth.getUser();
 

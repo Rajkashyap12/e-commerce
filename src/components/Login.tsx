@@ -24,6 +24,7 @@ const Login = ({ onLogin }: LoginProps) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [backendType, setBackendType] = useState<"java" | "supabase">("java");
   const navigate = useNavigate();
 
   const location = useLocation();
@@ -41,7 +42,15 @@ const Login = ({ onLogin }: LoginProps) => {
       } else {
         // Use the auth service directly if no onLogin prop is provided
         const { signIn } = await import("../services/auth");
-        await signIn(email, password);
+        const user = await signIn(email, password);
+
+        // Check if we're using Java backend based on the presence of authToken
+        const usingJavaBackend = !!localStorage.getItem("authToken");
+        setBackendType(usingJavaBackend ? "java" : "supabase");
+
+        console.log(
+          `Logged in successfully using ${usingJavaBackend ? "Java backend" : "Supabase"}`,
+        );
         navigate(from, { replace: true });
       }
     } catch (err: any) {

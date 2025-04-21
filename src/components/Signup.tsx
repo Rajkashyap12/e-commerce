@@ -29,6 +29,7 @@ const Signup = ({ onSignup = async () => {} }: SignupProps) => {
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [backendType, setBackendType] = useState<"java" | "supabase">("java");
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,12 +59,31 @@ const Signup = ({ onSignup = async () => {} }: SignupProps) => {
     setIsLoading(true);
 
     try {
-      await onSignup({
-        email: formData.email,
-        password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-      });
+      // If onSignup prop is provided, use it
+      if (onSignup !== async () => {}) {
+        await onSignup({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        });
+      } else {
+        // Otherwise use the auth service directly
+        const { signUp } = await import("../services/auth");
+        await signUp({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        });
+        
+        // Check if we're using Java backend based on the presence of authToken
+        const usingJavaBackend = !!localStorage.getItem("authToken");
+        setBackendType(usingJavaBackend ? "java" : "supabase");
+        
+        console.log(`Signed up successfully using ${usingJavaBackend ? "Java backend" : "Supabase"}`)
+      }
+      
       navigate("/login"); // Redirect to login page after successful signup
     } catch (err: any) {
       setError(err.message || "Failed to create account. Please try again.");
